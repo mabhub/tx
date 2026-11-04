@@ -33,6 +33,9 @@ if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ 
 fi
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
+# Outside a UTF-8 locale, tmux prints the tabs of -F formats as "_", which
+# breaks every field split below; -u keeps them. (exec tmux skips this.)
+tmux() { command tmux -u "$@"; }
 resolve_path() { # absolute path, symlinks resolved (no readlink -f before macOS 12.3)
   local p=$1 target
   while [ -L "$p" ]; do
@@ -74,7 +77,7 @@ EOF
   exit 0
 fi
 
-command -v tmux >/dev/null 2>&1 || die "$(L "tmux introuvable." "tmux not found.")"
+type -P tmux >/dev/null || die "$(L "tmux introuvable." "tmux not found.")"
 
 HAS_FZF=0; command -v fzf >/dev/null 2>&1 && HAS_FZF=1
 IN_TMUX=0; [ -n "${TMUX:-}" ] && IN_TMUX=1
