@@ -16,19 +16,20 @@ die() { printf '%s\n' "$*" >&2; exit 1; }
 SELF=$(readlink -f "$0")
 
 if [ "${1:-}" = init ]; then
+  QSELF=$(printf %q "$SELF")  # path quoted for the generated shell code
   case ${2:-} in
     zsh) cat <<EOF
 if [[ -o interactive && -z \${TMUX:-} ]] && command -v tmux >/dev/null; then
-  '$SELF' notice
-  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && '$SELF' notice --exit; }
+  $QSELF notice
+  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && $QSELF notice --exit; }
   autoload -Uz add-zsh-hook && add-zsh-hook zshexit _tx_exit
 fi
 EOF
     ;;
     bash) cat <<EOF
 if [[ \$- == *i* && -z \${TMUX:-} ]] && command -v tmux >/dev/null; then
-  '$SELF' notice
-  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && '$SELF' notice --exit; }
+  $QSELF notice
+  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && $QSELF notice --exit; }
   # Keep an EXIT trap set earlier (bash has a single EXIT trap), and install
   # ours only once: re-sourcing .bashrc would make it call itself forever.
   if [[ \$(trap -p EXIT) != *_tx_exit* ]]; then
@@ -81,6 +82,7 @@ proc_ppid() { # parent PID from /proc (4th field of stat, after "comm)")
   local s
   s=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
   s=${s##*) }
+  # shellcheck disable=SC2086 # split on purpose: stat fields are space-separated
   set -- $s
   printf '%s' "$2"
 }
@@ -100,10 +102,11 @@ client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kit
     p=$(proc_ppid "$p") || break
     [ "${p:-0}" -le 1 ] && break
     c=$(cat "/proc/$p/comm" 2>/dev/null) || break
+    is_shell "$c" && continue
     case $c in
       "tmux: server") printf 'dans tmux (%s)' "$t"; return ;;
       systemd|init) break ;;
-      bash|zsh|sh|dash|ash|fish|ksh|mksh|sudo|su|login|script|env|tmux*|tx) continue ;;
+      sudo|su|login|script|env|tmux*|tx) continue ;;
       sshd*)  printf 'ssh (%s)' "$t"; return ;;
       mosh*)  printf 'mosh (%s)' "$t"; return ;;
       *)      printf 'local, %s (%s)' "$c" "$t"; return ;;
@@ -121,6 +124,7 @@ choose() {
     local args=(--delimiter=$'\t' --with-nth=2.. --no-multi --reverse
                 --prompt="$prompt > " --header="$header" --ansi)
     [ -n "$height" ] && args+=(--height="$height")
+    # shellcheck disable=SC2054 # "down,50%" is one fzf argument, not two array items
     [ -n "$preview" ] && args+=(--preview="$preview" --preview-window=down,50%)
     sel=$(SHELL=${BASH:-/bin/bash} fzf "${args[@]}") || return 1
     printf '%s' "${sel%%$'\t'*}"
@@ -320,9 +324,7 @@ other_terminal_open() { # true if another local terminal is open (a pts that is 
 notice_exit() { # blocking reminder when the last local terminal closes
   local summary reply
   # Nested shell (zsh started from another shell): the terminal is not closing.
-  case $(cat "/proc/$(proc_ppid "$PPID")/comm" 2>/dev/null) in
-    bash|zsh|sh|dash|ash|fish|ksh|mksh) return 0 ;;
-  esac
+  is_shell "$(cat "/proc/$(proc_ppid "$PPID")/comm" 2>/dev/null)" && return 0
   while :; do
     summary=$(sessions_summary)
     [ -z "$summary" ] && return 0
