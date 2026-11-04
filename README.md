@@ -14,15 +14,18 @@ sessions you left running.
   from another machine over ssh or mosh.
 
 ```
-tmux : 1 session détachée (build) et 1 session attachée en ssh (notes) → tx
+tmux: 1 detached session (build) and 1 session attached over ssh (notes) → tx
 ```
 
-> The interface is currently in French.
+The interface is in English or French, following the locale (`LC_ALL`,
+`LC_MESSAGES`, then `LANG`): French when it starts with `fr`, English
+otherwise. Run `LC_ALL=C tx` to force English.
 
 ## Requirements
 
 - Linux (process origins are read from `/proc`)
-- bash ≥ 4
+- bash ≥ 4.4 (`tx` stops with a clear message on older versions, such as the
+  bash 3.2 shipped with macOS)
 - tmux
 - [fzf](https://github.com/junegunn/fzf), optional: without it `tx` falls back
   to a numbered menu
@@ -30,7 +33,7 @@ tmux : 1 session détachée (build) et 1 session attachée en ssh (notes) → tx
 ## Installation
 
 ```sh
-git clone <repository-url> ~/projets/tx
+git clone https://github.com/mabhub/tx.git ~/projets/tx
 ln -s ~/projets/tx/tx ~/bin/tx        # any directory on your PATH
 ```
 
@@ -45,7 +48,8 @@ command -v tx >/dev/null && eval "$(tx init bash)"
 ```
 
 The generated code only runs in interactive shells outside tmux, and does
-nothing if tmux is not installed.
+nothing if tmux is not installed. In bash, an `EXIT` trap set earlier in
+`.bashrc` is kept and still runs.
 
 ## Usage
 
@@ -63,9 +67,11 @@ list). For a selected session:
 - **Attach**: if other clients are already attached, choose between
   detaching them or sharing the session.
 - **Rename**: tmux forbids `.` and `:` in session names.
-- **Close**: sends Ctrl-C then `exit` to every pane so programs can shut down
-  cleanly, waits up to 5 seconds, and offers `kill-session` if some panes are
-  still running.
+- **Close**: sends Ctrl-C then `exit` to the panes sitting at a shell prompt,
+  so they shut down cleanly. Panes running another program (an editor, a
+  REPL, a long job) are listed before you confirm and left untouched: typing
+  `exit` there would end up in the program's input. After up to 5 seconds,
+  if panes remain, `tx` lists them and offers `kill-session`.
 
 Attaching or creating an attached session is not possible from inside tmux;
 `tx` tells you to detach first.
@@ -96,3 +102,7 @@ going away and nothing else would remind you of your sessions:
 
 The reminder lists the sessions that would be left behind. Press Enter to
 close the terminal anyway, or `t` to open `tx` and deal with them first.
+
+## License
+
+[MIT](LICENSE)
