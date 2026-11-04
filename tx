@@ -77,6 +77,11 @@ proc_ppid() { # parent PID from /proc (4th field of stat, after "comm)")
   printf '%s' "$2"
 }
 
+is_shell() { # is_shell NAME → true for an interactive shell (login shells start with "-")
+  case ${1#-} in bash|zsh|sh|dash|ash|fish|ksh|mksh) return 0 ;; esac
+  return 1
+}
+
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
   local pid=$1 t=${2#/dev/} ssh p c i
   if [ ! -d "/proc/$pid" ]; then printf '%s' "$t"; return; fi
@@ -209,18 +214,27 @@ rename_session() {
 }
 
 close_session() {
-  local name=$1 p i
+  local name=$1 p cmd i shells=() others=() desc
   if [ "$IN_TMUX" = 1 ] && [ "$name" = "$MY_SESSION" ]; then
     msg "Impossible de fermer la session où tx s'exécute : faites-le depuis une autre session ou hors de tmux."
     return
   fi
-  confirm "Fermer la session « $name » (Ctrl-C puis exit dans chaque panneau) ?" || return
-  local panes
-  panes=$(tmux list-panes -s -t "=$name:" -F '#{pane_id}' 2>/dev/null) || {
-    msg "La session « $name » n'existe plus."; return; }
-  for p in $panes; do tmux send-keys -t "$p" C-c 2>/dev/null; done
+  while IFS=$'\t' read -r p desc cmd; do
+    if is_shell "$cmd"; then shells+=("$p"); else others+=("  $desc  $cmd"); fi
+  done < <(tmux list-panes -s -t "=$name:" -F $'#{pane_id}\t#{window_index}.#{pane_index}\t#{pane_current_command}' 2>/dev/null)
+  if [ $((${#shells[@]} + ${#others[@]})) -eq 0 ]; then
+    msg "La session « $name » n'existe plus."; return
+  fi
+  # Only idle shells get "exit": typing it into another program (an editor,
+  # a REPL…) would end up as text in its buffer.
+  if [ ${#others[@]} -gt 0 ]; then
+    printf '\nPanneaux occupés par un programme (laissés intacts) :\n' >&2
+    printf '%s\n' "${others[@]}" >&2
+  fi
+  confirm "Fermer la session « $name » (exit dans les ${#shells[@]} panneau(x) shell) ?" || return
+  for p in "${shells[@]}"; do tmux send-keys -t "$p" C-c 2>/dev/null; done
   sleep 0.3
-  for p in $panes; do
+  for p in "${shells[@]}"; do
     tmux send-keys -t "$p" -l exit 2>/dev/null
     tmux send-keys -t "$p" Enter 2>/dev/null
   done
@@ -228,7 +242,7 @@ close_session() {
     tmux has-session -t "=$name" 2>/dev/null || { msg "Session « $name » fermée proprement."; return; }
     sleep 0.5
   done
-  printf '\nLa session « %s » résiste. Panneaux restants :\n' "$name" >&2
+  printf '\nLa session « %s » reste ouverte. Panneaux restants :\n' "$name" >&2
   tmux list-panes -s -t "=$name:" -F '  #{window_index}.#{pane_index}  #{pane_current_command}' >&2 2>/dev/null
   if confirm "La tuer (kill-session) ?"; then
     tmux kill-session -t "=$name" && msg "Session « $name » tuée."
