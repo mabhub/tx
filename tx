@@ -28,7 +28,15 @@ EOF
     bash) cat <<EOF
 if [[ \$- == *i* && -z \${TMUX:-} ]] && command -v tmux >/dev/null; then
   '$SELF' notice
-  trap '[[ -z \${TMUX:-} && -t 0 ]] && '\''$SELF'\'' notice --exit' EXIT
+  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && '$SELF' notice --exit; }
+  # Keep an EXIT trap set earlier (bash has a single EXIT trap), and install
+  # ours only once: re-sourcing .bashrc would make it call itself forever.
+  if [[ \$(trap -p EXIT) != *_tx_exit* ]]; then
+    _tx_prev_trap=\$(trap -p EXIT)
+    _tx_prev_trap=\${_tx_prev_trap#trap -- }
+    eval "_tx_prev_trap=\${_tx_prev_trap% EXIT}"
+    trap '_tx_exit; eval "\$_tx_prev_trap"' EXIT
+  fi
 fi
 EOF
     ;;
