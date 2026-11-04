@@ -23,12 +23,16 @@ otherwise. Run `LC_ALL=C tx` to force English.
 
 ## Requirements
 
-- Linux (process origins are read from `/proc`)
-- bash ≥ 4.4 (`tx` stops with a clear message on older versions, such as the
-  bash 3.2 shipped with macOS)
+- Linux or macOS
+- bash ≥ 4.4 (`tx` stops with a clear message on older versions). macOS ships
+  bash 3.2: install a recent one with `brew install bash`
 - tmux
 - [fzf](https://github.com/junegunn/fzf), optional: without it `tx` falls back
   to a numbered menu
+
+On macOS: `brew install bash tmux fzf`. macOS support is recent: the menu and
+the notice are tested in CI, but the reminder shown when closing the last
+terminal has not been tried in Terminal.app or iTerm2 yet.
 
 ## Installation
 
@@ -102,6 +106,16 @@ going away and nothing else would remind you of your sessions:
 
 The reminder lists the sessions that would be left behind. Press Enter to
 close the terminal anyway, or `t` to open `tx` and deal with them first.
+
+## Tests
+
+```sh
+tests/notice.sh
+```
+
+Starts an isolated tmux server (your sessions are left alone), attaches
+simulated local and ssh clients, and checks the notice. CI runs it on Linux
+and macOS, along with `shellcheck`.
 
 ## License
 

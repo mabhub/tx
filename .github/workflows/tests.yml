@@ -1,0 +1,32 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck -s bash tx tests/notice.sh
+
+  notice:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            brew install bash tmux
+          else
+            sudo apt-get update -q && sudo apt-get install -y -q tmux
+          fi
+          bash --version | head -n 1
+          tmux -V
+      - run: tests/notice.sh
