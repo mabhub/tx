@@ -7,8 +7,9 @@
 # Subcommands:
 #   tx                   interactive menu
 #   tx init zsh|bash     code to eval in .zshrc/.bashrc: eval "$(tx init zsh)"
-#                        → warns about detached or ssh-attached sessions when a
-#                          terminal opens and when the last local terminal closes
+#                        → warns about detached or remotely attached sessions
+#                          when a terminal opens and when the last local
+#                          terminal closes
 #   tx notice [--exit]   the warning itself (--exit: blocking reminder)
 set -u
 
@@ -87,8 +88,9 @@ Utilise fzf s'il est installé, un menu numéroté sinon.
 Sous-commandes :
   tx                   menu interactif
   tx init zsh|bash     code à évaluer dans .zshrc/.bashrc : eval "$(tx init zsh)"
-                       → signale les sessions détachées ou attachées en ssh à
-                         l'ouverture d'un terminal et à la fermeture du dernier
+                       → signale les sessions détachées ou attachées à
+                         distance à l'ouverture d'un terminal et à la
+                         fermeture du dernier
   tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
 EOF
   else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p;}' "$SELF"; fi
@@ -387,15 +389,15 @@ count_names() { # count_names NAMES SINGULAR PLURAL → "2 detached sessions (bu
   else printf '1 %s (%s)' "$2" "$list"; fi
 }
 
-sessions_summary() { # detached and ssh-attached sessions, empty if there are none
+sessions_summary() { # detached and remotely attached sessions, empty if there are none
   local detached remote out=""
   detached=$(tmux list-sessions -F '#{session_attached} #{session_name}' 2>/dev/null | sed -n 's/^0 //p')
   remote=$(remote_sessions)
   [ -n "$detached" ] && out=$(count_names "$detached" \
     "$(L "session détachée" "detached session")" "$(L "sessions détachées" "detached sessions")")
   [ -n "$remote" ] && out+="${out:+$(L " et " " and ")}$(count_names "$remote" \
-    "$(L "session attachée en ssh" "session attached over ssh")" \
-    "$(L "sessions attachées en ssh" "sessions attached over ssh")")"
+    "$(L "session attachée à distance" "session attached remotely")" \
+    "$(L "sessions attachées à distance" "sessions attached remotely")")"
   printf '%s' "$out"
 }
 

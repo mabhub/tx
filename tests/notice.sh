@@ -31,7 +31,7 @@ kill $(jobs -p) 2>/dev/null
 
 printf '%s\n' "$out"
 fail=0
-for want in "1 detached session (build)" "2 sessions attached over ssh (" "notes" "mixte"; do
+for want in "1 detached session (build)" "2 sessions attached remotely (" "notes" "mixte"; do
   case $out in *"$want"*) ;; *) printf 'FAIL: missing "%s"\n' "$want"; fail=1 ;; esac
 done
 case $out in *locale*) printf 'FAIL: "locale" is attached locally and must not be listed\n'; fail=1 ;; esac

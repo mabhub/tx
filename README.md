@@ -14,7 +14,7 @@ sessions you left running.
   from another machine over ssh or mosh.
 
 ```
-tmux: 1 detached session (build) and 1 session attached over ssh (notes) → tx
+tmux: 1 detached session (build) and 1 session attached remotely (notes) → tx
 ```
 
 The interface is in English or French, following the locale (`LC_ALL`,
