@@ -77,6 +77,24 @@ EOF
   exit 0
 fi
 
+if [ "${1:-}" = -h ] || [ "${1:-}" = --help ]; then
+  if [ "$TX_LANG" = fr ]; then cat <<'EOF'
+tx : gestionnaire interactif de sessions tmux.
+Liste les sessions (attachées/détachées, d'où se connecte chaque client), puis
+permet de les rattacher, renommer, fermer, ou d'en créer une nouvelle.
+Utilise fzf s'il est installé, un menu numéroté sinon.
+
+Sous-commandes :
+  tx                   menu interactif
+  tx init zsh|bash     code à évaluer dans .zshrc/.bashrc : eval "$(tx init zsh)"
+                       → signale les sessions détachées ou attachées en ssh à
+                         l'ouverture d'un terminal et à la fermeture du dernier
+  tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
+EOF
+  else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p;}' "$SELF"; fi
+  exit 0
+fi
+
 type -P tmux >/dev/null || die "$(L "tmux introuvable." "tmux not found.")"
 
 HAS_FZF=0; command -v fzf >/dev/null 2>&1 && HAS_FZF=1
@@ -419,22 +437,6 @@ case ${1:-} in
     if [ "${2:-}" = --exit ]; then notice_exit; exit 0; fi
     summary=$(sessions_summary)
     [ -n "$summary" ] && printf '%s %s → tx\n' "$(L "tmux :" "tmux:")" "$summary" >&2
-    exit 0 ;;
-  -h|--help)
-    if [ "$TX_LANG" = fr ]; then cat <<'EOF'
-tx : gestionnaire interactif de sessions tmux.
-Liste les sessions (attachées/détachées, d'où se connecte chaque client), puis
-permet de les rattacher, renommer, fermer, ou d'en créer une nouvelle.
-Utilise fzf s'il est installé, un menu numéroté sinon.
-
-Sous-commandes :
-  tx                   menu interactif
-  tx init zsh|bash     code à évaluer dans .zshrc/.bashrc : eval "$(tx init zsh)"
-                       → signale les sessions détachées ou attachées en ssh à
-                         l'ouverture d'un terminal et à la fermeture du dernier
-  tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
-EOF
-    else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p;}' "$SELF"; fi
     exit 0 ;;
   *) die "$(L "Sous-commande inconnue : $1 (voir tx --help)" "Unknown subcommand: $1 (see tx --help)")" ;;
 esac
