@@ -18,15 +18,30 @@ L() { # L FRENCH ENGLISH → the text in the interface language
   if [ "$TX_LANG" = fr ]; then printf '%s' "$1"; else printf '%s' "$2"; fi
 }
 
+case $(uname -s) in
+  Linux|Darwin) ;;
+  *) printf '%s\n' "$(L "tx ne fonctionne que sous Linux et macOS." "tx only runs on Linux and macOS.")" >&2
+     exit 1 ;;
+esac
 # bash 4.4: associative arrays (4.0), and empty arrays allowed under set -u.
+# macOS ships bash 3.2: a newer one comes from Homebrew.
 if [ "${BASH_VERSINFO[0]:-0}" -lt 4 ] || { [ "${BASH_VERSINFO[0]}" -eq 4 ] && [ "${BASH_VERSINFO[1]}" -lt 4 ]; }; then
   printf '%s %s).\n' "$(L "tx nécessite bash 4.4 ou plus récent (version actuelle :" \
     "tx needs bash 4.4 or later (running bash")" "${BASH_VERSION:-?}" >&2
+  [ "$(uname -s)" = Darwin ] && printf '%s\n' "$(L "Installez-le avec : brew install bash" "Install it with: brew install bash")" >&2
   exit 1
 fi
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
-SELF=$(readlink -f "$0")
+resolve_path() { # absolute path, symlinks resolved (no readlink -f before macOS 12.3)
+  local p=$1 target
+  while [ -L "$p" ]; do
+    target=$(readlink "$p")
+    case $target in /*) p=$target ;; *) p=$(dirname "$p")/$target ;; esac
+  done
+  printf '%s/%s' "$(cd -P "$(dirname "$p")" && pwd)" "$(basename "$p")"
+}
+SELF=$(resolve_path "$0")
 
 if [ "${1:-}" = init ]; then
   QSELF=$(printf %q "$SELF")  # path quoted for the generated shell code
@@ -63,6 +78,7 @@ command -v tmux >/dev/null 2>&1 || die "$(L "tmux introuvable." "tmux not found.
 
 HAS_FZF=0; command -v fzf >/dev/null 2>&1 && HAS_FZF=1
 IN_TMUX=0; [ -n "${TMUX:-}" ] && IN_TMUX=1
+SERVER_PID=$(tmux list-sessions -F '#{pid}' 2>/dev/null | head -n 1)
 MY_CLIENT_TTY=""
 [ "$IN_TMUX" = 1 ] && MY_CLIENT_TTY=$(tmux display-message -p '#{client_tty}' 2>/dev/null)
 MY_SESSION=""
@@ -89,18 +105,28 @@ confirm() {
   return 1
 }
 
-fmt_date() {
-  if [ "$TX_LANG" = fr ]; then date -d "@$1" '+%d/%m %H:%M'
-  else LC_ALL=C date -d "@$1" '+%b %d %H:%M'; fi 2>/dev/null || printf '%s' "$1"
+fmt_date() { # fmt_date EPOCH → short date, with bash's own strftime
+  if [ "$TX_LANG" = fr ]; then printf '%(%d/%m %H:%M)T' "$1"
+  else LC_ALL=C printf '%(%b %d %H:%M)T' "$1"; fi
 }
 
-proc_ppid() { # parent PID from /proc (4th field of stat, after "comm)")
-  local s
-  s=$(cat "/proc/$1/stat" 2>/dev/null) || return 1
-  s=${s##*) }
-  # shellcheck disable=SC2086 # split on purpose: stat fields are space-separated
-  set -- $s
-  printf '%s' "$2"
+# Process information goes through ps, which Linux and macOS share.
+proc_info() { # proc_info PID → "PPID COMMAND-NAME" (command without its directory)
+  local ppid comm
+  read -r ppid comm < <(ps -o ppid=,comm= -p "$1" 2>/dev/null) || return 1
+  [ -n "$ppid" ] || return 1
+  printf '%s %s' "$ppid" "${comm##*/}"
+}
+
+proc_ppid() { local i; i=$(proc_info "$1") || return 1; printf '%s' "${i%% *}"; }
+proc_comm() { local i; i=$(proc_info "$1") || return 1; printf '%s' "${i#* }"; }
+
+proc_ssh_client() { # proc_ssh_client PID → client address from the process's SSH_CONNECTION
+  if [ -r "/proc/$1/environ" ]; then
+    tr '\0' '\n' <"/proc/$1/environ" 2>/dev/null
+  else # macOS: ps -E appends the environment, except for Apple's own programs (never tmux)
+    ps -E -o command= -p "$1" 2>/dev/null | tr ' ' '\n'
+  fi | sed -n 's/^SSH_CONNECTION=//p' | head -n 1
 }
 
 is_shell() { # is_shell NAME → true for an interactive shell (login shells start with "-")
@@ -113,19 +139,21 @@ pane_is_shell() { # pane_is_shell PANE_ID → true if the pane is at a shell pro
 }
 
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
-  local pid=$1 t=${2#/dev/} ssh p c i
-  if [ ! -d "/proc/$pid" ]; then printf '%s' "$t"; return; fi
-  ssh=$(tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | sed -n 's/^SSH_CONNECTION=\([^ ]*\).*/\1/p')
-  if [ -n "$ssh" ]; then printf 'ssh %s (%s)' "$ssh" "$t"; return; fi
-  p=$pid
+  local pid=$1 t=${2#/dev/} ssh p c i info
+  info=$(proc_info "$pid") || { printf '%s' "$t"; return; }
+  ssh=$(proc_ssh_client "$pid")
+  if [ -n "$ssh" ]; then printf 'ssh %s (%s)' "${ssh%% *}" "$t"; return; fi
+  p=${info%% *}
   for i in 1 2 3 4 5 6; do
-    p=$(proc_ppid "$p") || break
     [ "${p:-0}" -le 1 ] && break
-    c=$(cat "/proc/$p/comm" 2>/dev/null) || break
+    info=$(proc_info "$p") || break
+    c=${info#* }
+    # The tmux server only renames its process on Linux: match its PID.
+    if [ "$p" = "$SERVER_PID" ]; then printf '%s (%s)' "$(L "dans tmux" "inside tmux")" "$t"; return; fi
+    p=${info%% *}
     is_shell "$c" && continue
     case $c in
-      "tmux: server") printf '%s (%s)' "$(L "dans tmux" "inside tmux")" "$t"; return ;;
-      systemd|init) break ;;
+      systemd|init|launchd) break ;;
       sudo|su|login|script|env|tmux*|tx) continue ;;
       sshd*)  printf 'ssh (%s)' "$t"; return ;;
       mosh*)  printf 'mosh (%s)' "$t"; return ;;
@@ -331,7 +359,7 @@ remote_sessions() { # sessions with at least one ssh/mosh client, one per line
 
 count_names() { # count_names NAMES SINGULAR PLURAL → "2 detached sessions (build, notes)"
   local n list
-  n=$(printf '%s\n' "$1" | wc -l)
+  n=$(( $(printf '%s\n' "$1" | wc -l) ))  # BSD wc pads the number with spaces
   list=$(printf '%s\n' "$1" | paste -sd, - | sed 's/,/, /g')
   if [ "$n" -gt 1 ]; then printf '%s %s (%s)' "$n" "$3" "$list"
   else printf '1 %s (%s)' "$2" "$list"; fi
@@ -349,13 +377,13 @@ sessions_summary() { # detached and ssh-attached sessions, empty if there are no
   printf '%s' "$out"
 }
 
-other_terminal_open() { # true if another local terminal is open (a pts that is neither a tmux pane nor ssh/mosh)
+other_terminal_open() { # true if another local terminal is open (a pty that is neither a tmux pane nor ssh/mosh)
   local mine panes pid tty
   local -A seen=()
   mine=$(ps -o tty= -p $$ | tr -d ' ')
   panes=" $(tmux list-panes -a -F '#{pane_tty}' 2>/dev/null | sed 's|^/dev/||' | tr '\n' ' ') "
   while read -r pid tty; do
-    case $tty in pts/*) ;; *) continue ;; esac
+    case $tty in pts/*|ttys*) ;; *) continue ;; esac  # Linux, macOS
     [ "$tty" = "$mine" ] || [[ $panes == *" $tty "* ]] || [ -n "${seen[$tty]:-}" ] && continue
     seen[$tty]=1
     is_remote_pid "$pid" || return 0
@@ -366,7 +394,7 @@ other_terminal_open() { # true if another local terminal is open (a pts that is 
 notice_exit() { # blocking reminder when the last local terminal closes
   local summary reply
   # Nested shell (zsh started from another shell): the terminal is not closing.
-  is_shell "$(cat "/proc/$(proc_ppid "$PPID")/comm" 2>/dev/null)" && return 0
+  is_shell "$(proc_comm "$(proc_ppid "$PPID")")" && return 0
   while :; do
     summary=$(sessions_summary)
     [ -z "$summary" ] && return 0
@@ -402,7 +430,7 @@ Sous-commandes :
                          l'ouverture d'un terminal et à la fermeture du dernier
   tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
 EOF
-    else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p}' "$SELF"; fi
+    else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p;}' "$SELF"; fi
     exit 0 ;;
   *) die "$(L "Sous-commande inconnue : $1 (voir tx --help)" "Unknown subcommand: $1 (see tx --help)")" ;;
 esac
