@@ -5,11 +5,15 @@ on:
   pull_request:
   workflow_dispatch:
 
+# The jobs only read the code.
+permissions:
+  contents: read
+
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: shellcheck -s bash tx tests/*.sh
 
   tests:
@@ -19,7 +23,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install dependencies
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
