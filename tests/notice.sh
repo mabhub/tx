@@ -5,20 +5,10 @@
 # Usage: tests/notice.sh [path/to/tx]
 set -u
 TX=${1:-$(cd "$(dirname "$0")/.." && pwd)/tx}
-# Short socket path: Unix sockets are limited to about 100 characters.
-TMUX_TMPDIR=$(mktemp -d /tmp/txt.XXXX); export TMUX_TMPDIR
-# shellcheck disable=SC2329 # run by the EXIT trap
-cleanup() {
-  tmux kill-server 2>/dev/null
-  rm -rf "$TMUX_TMPDIR"
-  # shellcheck disable=SC2046 # one PID per word
-  kill $(jobs -p) 2>/dev/null
-}
-trap cleanup EXIT
-unset TMUX; export LC_ALL=C TERM=${TERM:-xterm}
-[ "$TERM" = dumb ] && export TERM=xterm
+export LC_ALL=C
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
+start_test_server
 
 client() { # client SESSION: attach a client inside a pty, kept open by a never-ending stdin
   sleep 600 | pty tmux attach -t "$1" >/dev/null 2>&1 &

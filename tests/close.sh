@@ -8,24 +8,14 @@
 # Usage: tests/close.sh [path/to/tx]
 set -u
 TX=${1:-$(cd "$(dirname "$0")/.." && pwd)/tx}
-# Short socket path: Unix sockets are limited to about 100 characters.
-TMUX_TMPDIR=$(mktemp -d /tmp/txt.XXXX); export TMUX_TMPDIR
-# shellcheck disable=SC2329 # run by the EXIT trap
-cleanup() {  # also when interrupted: the panes run sleep 600
-  tmux kill-server 2>/dev/null
-  # shellcheck disable=SC2046 # one PID per word
-  kill $(jobs -p) 2>/dev/null
-  rm -rf "$TMUX_TMPDIR" "${SANDBOX:-}"
-}
-trap cleanup EXIT
-unset TMUX; export LC_ALL=C TERM=${TERM:-xterm}
-[ "$TERM" = dumb ] && export TERM=xterm
-LOG=$TMUX_TMPDIR/menu.log
-
+export LC_ALL=C
 # shellcheck source=tests/lib.sh
 . "$(dirname "$0")/lib.sh"
+start_test_server
+LOG=$TMUX_TMPDIR/menu.log
 # A PATH without fzf: tx falls back to its numbered menu, which reads stdin.
-SANDBOX=$(mktemp -d /tmp/txb.XXXX); no_fzf_path "$SANDBOX"
+SANDBOX=$(mktemp -d /tmp/txb.XXXX) || exit 1
+no_fzf_path "$SANDBOX"
 
 fail=0
 failed() { printf 'FAIL: %s\n' "$1"; fail=1; }

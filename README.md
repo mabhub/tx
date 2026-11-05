@@ -137,7 +137,8 @@ tests/notice.sh
 tests/close.sh
 ```
 
-Both start an isolated tmux server (your sessions are left alone).
+Both start an isolated tmux server, without your `~/.tmux.conf` (your
+sessions are left alone).
 `tests/notice.sh` attaches simulated local and ssh clients, and checks the
 notice. `tests/close.sh` closes sessions from the numbered menu and checks
 that a pane running a program is left untouched.

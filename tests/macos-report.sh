@@ -26,21 +26,9 @@ note() { printf '%-28s %s\n' "$1" "$2"; }
 RESULTS=""
 result() { RESULTS+=$(printf '%-6s %s' "$1" "$2")$'\n'; }  # result PASS|FAIL|INFO TEXT
 
-TMUX_TMPDIR=$(mktemp -d /tmp/txt.XXXX); export TMUX_TMPDIR
-unset TMUX
-# tmux clients need a usable TERM (CI has none, or "dumb").
-case ${TERM:-dumb} in dumb) export TERM=xterm ;; esac
-# shellcheck disable=SC2329 # run by the EXIT trap
-cleanup() {
-  tmux kill-server 2>/dev/null
-  rm -rf "$TMUX_TMPDIR" "${SANDBOX:-}"
-  # shellcheck disable=SC2046 # one PID per word
-  kill $(jobs -p) 2>/dev/null
-}
-trap cleanup EXIT
-
 # shellcheck source=tests/lib.sh
 . tests/lib.sh
+start_test_server
 kill_tree() { local c; for c in $(pgrep -P "$1"); do kill_tree "$c"; done; kill "$1" 2>/dev/null; }
 in_pty() { # in_pty INPUT CMD...: types INPUT into CMD after 2 s, gives up after 15 s
   local input=$1 pid _; shift
@@ -90,7 +78,7 @@ case $(bash_version /bin/bash) in
   *) result INFO "/bin/bash is recent: version guard not exercised" ;;
 esac
 
-if [ -z "$NEWBASH" ] || ! command -v tmux >/dev/null; then
+if [ -z "$NEWBASH" ] || ! type -P tmux >/dev/null; then  # not the tmux function of lib.sh
   result FAIL "bash ≥ 4.4 or tmux missing: other checks skipped"
   section "Summary"; printf '%s' "$RESULTS"; finish 1
 fi
@@ -140,7 +128,8 @@ note "seen" "${seen:-nothing}"
 
 section "Menu, numbered version (fzf hidden)"
 # A PATH without fzf: tx falls back to its numbered menu, which can be driven from here.
-SANDBOX=$(mktemp -d /tmp/txb.XXXX); no_fzf_path "$SANDBOX"
+SANDBOX=$(mktemp -d /tmp/txb.XXXX) || finish 1
+no_fzf_path "$SANDBOX"
 tmux new-session -d -s alone
 tmux new-session -d -s here
 sleep 600 | pty tmux attach -t here >/dev/null 2>&1 &
