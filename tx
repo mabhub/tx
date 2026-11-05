@@ -104,8 +104,8 @@ IN_TMUX=0; [ -n "${TMUX:-}" ] && IN_TMUX=1
 SERVER_PID=$(tmux list-sessions -F '#{pid}' 2>/dev/null | head -n 1)
 MY_CLIENT_TTY=""
 [ "$IN_TMUX" = 1 ] && MY_CLIENT_TTY=$(tmux display-message -p '#{client_tty}' 2>/dev/null)
-MY_SESSION=""
-[ "$IN_TMUX" = 1 ] && MY_SESSION=$(tmux display-message -p '#{session_name}' 2>/dev/null)
+MY_SESSION_ID=""  # an ID, unlike the name, survives a rename
+[ "$IN_TMUX" = 1 ] && MY_SESSION_ID=$(tmux display-message -p "#{session_id}" 2>/dev/null)
 
 LAST_MSG=""
 NEW_KEY="+"   # key of the "new session" entry, rejected as a session name
@@ -315,7 +315,7 @@ rename_session() {
 
 close_session() {
   local name=$1 p cmd i shells=() others=() desc
-  if [ "$IN_TMUX" = 1 ] && [ "$name" = "$MY_SESSION" ]; then
+  if [ "$IN_TMUX" = 1 ] && [ "$(tmux display-message -p -t "=$name:" "#{session_id}" 2>/dev/null)" = "$MY_SESSION_ID" ]; then
     msg "$(L "Impossible de fermer la session où tx s'exécute : faites-le depuis une autre session ou hors de tmux." \
              "Cannot close the session tx runs in: do it from another session or outside tmux.")"
     return
