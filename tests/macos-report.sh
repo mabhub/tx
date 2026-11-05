@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks tx on a Mac and writes tx-macos-report.txt (in the repository root),
-# to attach to a bug report. CI runs it on macOS. Takes about 30 seconds and
+# to attach to a bug report. CI runs it on macOS. Takes about 45 seconds and
 # needs no input.
 # It installs nothing and changes no settings. It never touches your tmux
 # sessions, because everything runs on a throwaway tmux server.
@@ -162,6 +162,9 @@ tmux kill-server 2>/dev/null
 
 section "Notice test (tests/notice.sh)"
 if tests/notice.sh "$TX"; then result PASS "tests/notice.sh"; else result FAIL "tests/notice.sh"; fi
+
+section "Close test (tests/close.sh)"
+if tests/close.sh "$TX"; then result PASS "tests/close.sh"; else result FAIL "tests/close.sh"; fi
 
 section "Summary"
 printf '%s' "$RESULTS"

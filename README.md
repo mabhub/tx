@@ -130,17 +130,20 @@ once, and nothing is shown.
 
 ```sh
 tests/notice.sh
+tests/close.sh
 ```
 
-Starts an isolated tmux server (your sessions are left alone), attaches
-simulated local and ssh clients, and checks the notice.
+Both start an isolated tmux server (your sessions are left alone).
+`tests/notice.sh` attaches simulated local and ssh clients, and checks the
+notice. `tests/close.sh` closes sessions from the numbered menu and checks
+that a pane running a program is left untouched.
 
 On a Mac, `tests/macos-report.sh` also checks the bash version guard,
 `tx init` and the numbered menu, then writes `tx-macos-report.txt`, worth
 attaching to a bug report.
 
-CI runs `shellcheck`, then `tests/notice.sh` on Linux and
-`tests/macos-report.sh` on macOS.
+CI runs `shellcheck`, then `tests/notice.sh` and `tests/close.sh` on Linux,
+and `tests/macos-report.sh` (which runs both) on macOS.
 
 ## License
 
