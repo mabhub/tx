@@ -340,7 +340,7 @@ close_session() {
                 "Close session \"$name\" (exit in ${#shells[@]} shell pane(s))?")" || return
   # Check each pane again just before typing: a program may have started in
   # it while the confirmation was waiting.
-  local ready=()
+  local ready=() told=() alive left
   for p in "${shells[@]}"; do
     pane_at_prompt "$p" && tmux send-keys -t "$p" C-c 2>/dev/null && ready+=("$p")
   done
@@ -348,10 +348,16 @@ close_session() {
   for p in "${ready[@]}"; do
     pane_at_prompt "$p" || continue
     tmux send-keys -t "$p" -l exit 2>/dev/null
-    tmux send-keys -t "$p" Enter 2>/dev/null
+    tmux send-keys -t "$p" Enter 2>/dev/null && told+=("$p")
   done
+  # Wait for the shells told to exit, not for the whole session: a busy pane
+  # keeps it open anyway.
   for i in 1 2 3 4 5 6 7 8 9 10; do
-    tmux has-session -t "=$name" 2>/dev/null || { msg "$(L "Session « $name » fermée proprement." "Session \"$name\" closed cleanly.")"; return; }
+    alive=" $(tmux list-panes -s -t "=$name:" -F '#{pane_id}' 2>/dev/null | tr '\n' ' ')"
+    [ "$alive" = " " ] && { msg "$(L "Session « $name » fermée proprement." "Session \"$name\" closed cleanly.")"; return; }
+    left=0
+    for p in "${told[@]}"; do [[ $alive == *" $p "* ]] && left=1; done
+    [ "$left" = 0 ] && break
     sleep 0.5
   done
   printf '\n%s\n' "$(L "La session « $name » reste ouverte. Panneaux restants :" \
