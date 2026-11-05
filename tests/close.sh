@@ -35,6 +35,7 @@ shell=(bash --norc --noprofile)
 job='sleep 600; : tx-test-job'  # a script, which tmux shows as "bash"
 tmux new-session -d -s idle "${shell[@]}"
 tmux new-session -d -s busy -x 120 -y 60 "${shell[@]}"  # room for 5 panes
+tmux new-session -d -s stuck cat  # no shell at all: kill-session is offered at once
 # "exit" typed into cat would show up in the pane.
 cat_pane=$(tmux split-window -d -P -F '#{pane_id}' -t =busy: cat)
 tmux split-window -d -t =busy: bash -c "$job"  # the pane's own command
@@ -50,10 +51,11 @@ for _ in $(seq 20); do stopped && break; sleep 0.25; done
 # Otherwise the pane would look busy for another reason, and prove nothing.
 stopped || failed "the job in $stop_pane did not get suspended"
 
-# The list reads "1) + new session  2) busy  3) idle", the session menu
-# "1) Attach  2) Rename  3) Close". Close idle, then busy, decline the
-# kill-session offered for the panes left in busy, and quit.
-input=$'3\n3\ny\n2\n3\ny\nn\nq\n'
+# The list reads "1) + new session  2) busy  3) idle  4) stuck", the session
+# menu "1) Attach  2) Rename  3) Close". Close idle, then busy (declining the
+# kill-session offered for the panes left), then stuck (where kill-session
+# is the only question, declined too), and quit.
+input=$'3\n3\ny\n2\n3\ny\nn\n3\n3\nn\nq\n'
 # exec: the job's PID becomes this sleep, so the final kill stops it too.
 { sleep 2; printf '%s' "$input"; exec sleep 30; } | PATH=$SANDBOX pty "$TX" >"$LOG" 2>&1 &
 pid=$!
@@ -62,6 +64,10 @@ for _ in $(seq 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
 kill -0 "$pid" 2>/dev/null && failed "tx did not quit"
 tmux has-session -t =idle 2>/dev/null && failed "idle session still open"
 tmux has-session -t =busy 2>/dev/null || failed "busy session was killed"
+tmux has-session -t =stuck 2>/dev/null || failed "stuck session was killed"
+grep -q 'suspended job' "$LOG" || failed "the suspended job was not pointed out"
+grep -q 'No pane is waiting at a shell prompt' "$LOG" \
+  || failed "kill-session was not offered at once for stuck"
 [ "$(tmux list-panes -t =busy: -F '#{pane_current_command}' 2>/dev/null | sort | tr '\n' ' ')" \
   = "bash bash bash cat " ] || failed "busy should keep its cat and script panes"
 [ "$(pgrep -fx "bash -c $job" | wc -l)" -eq 3 ] || failed "a script was killed"

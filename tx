@@ -157,10 +157,10 @@ is_shell() { # is_shell NAME → true for an interactive shell (login shells sta
   return 1
 }
 
-pane_at_prompt() { # pane_at_prompt PANE_ID → true if the pane's shell waits at its prompt
+pane_state() { # pane_state PANE_ID → idle (shell at its prompt), suspended (shell holding a Ctrl-Z job) or busy
   local cmd='' pid=''
   IFS=$'\t' read -r cmd pid < <(tmux display-message -p -t "$1" $'#{pane_current_command}\t#{pane_pid}' 2>/dev/null)
-  is_shell "$cmd" || return 1
+  is_shell "$cmd" || { printf busy; return; }
   # A running script shows up as "bash" too. At its prompt, the shell owns
   # the terminal's foreground and is alone in its process group; a script
   # shares its group with the command it runs, or leaves the foreground to it.
@@ -168,7 +168,15 @@ pane_at_prompt() { # pane_at_prompt PANE_ID → true if the pane's shell waits a
   # forcing that shell out would take the job with it.
   ps -A -o ppid=,pgid=,tpgid=,stat= 2>/dev/null \
     | awk -v p="$pid" '$2 == p { n++; fg = $3 } $1 == p && $4 ~ /^T/ { stopped = 1 }
-                       END { exit !(n == 1 && fg == p && !stopped) }'
+                       END { printf "%s", stopped ? "suspended" : (n == 1 && fg == p) ? "idle" : "busy" }'
+}
+
+pane_at_prompt() { [ "$(pane_state "$1")" = idle ]; }
+
+pane_label() { # pane_label STATE DESC COMMAND → "  1.2  zsh (suspended job)"
+  local note=''
+  [ "$1" = suspended ] && note=" $(L "(job suspendu)" "(suspended job)")"
+  printf '  %s  %s%s\n' "$2" "$3" "$note"
 }
 
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
@@ -316,24 +324,41 @@ rename_session() {
   tmux rename-session -t "=$name" -- "$new" && msg "$(L "« $name » renommée en « $new »." "\"$name\" renamed to \"$new\".")"
 }
 
+list_panes() { # list_panes SESSION → "pane-id<TAB>window.pane<TAB>command" per pane
+  tmux list-panes -s -t "=$1:" -F $'#{pane_id}\t#{window_index}.#{pane_index}\t#{pane_current_command}' 2>/dev/null
+}
+
+offer_kill() { # offer_kill SESSION: the last resort, once the panes left were listed
+  if confirm "$(L "Tuer la session « $1 » (kill-session) ?" "Kill session \"$1\" (kill-session)?")"; then
+    tmux kill-session -t "=$1" && msg "$(L "Session « $1 » tuée." "Session \"$1\" killed.")"
+  else
+    msg "$(L "Session « $1 » laissée ouverte." "Session \"$1\" left open.")"
+  fi
+}
+
 close_session() {
-  local name=$1 p cmd i shells=() others=() desc
+  local name=$1 p desc cmd state i shells=() others=()
   if [ "$IN_TMUX" = 1 ] && [ "$(tmux display-message -p -t "=$name:" "#{session_id}" 2>/dev/null)" = "$MY_SESSION_ID" ]; then
     msg "$(L "Impossible de fermer la session où tx s'exécute : faites-le depuis une autre session ou hors de tmux." \
              "Cannot close the session tx runs in: do it from another session or outside tmux.")"
     return
   fi
   while IFS=$'\t' read -r p desc cmd; do
-    if pane_at_prompt "$p"; then shells+=("$p"); else others+=("  $desc  $cmd"); fi
-  done < <(tmux list-panes -s -t "=$name:" -F $'#{pane_id}\t#{window_index}.#{pane_index}\t#{pane_current_command}' 2>/dev/null)
+    state=$(pane_state "$p")
+    if [ "$state" = idle ]; then shells+=("$p"); else others+=("$(pane_label "$state" "$desc" "$cmd")"); fi
+  done < <(list_panes "$name")
   if [ $((${#shells[@]} + ${#others[@]})) -eq 0 ]; then
     msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return
+  fi
+  if [ ${#shells[@]} -eq 0 ]; then  # nothing to exit: only kill-session can close it
+    printf '\n%s\n' "$(L "Aucun panneau n'attend à un prompt de shell :" "No pane is waiting at a shell prompt:")" >&2
+    printf '%s\n' "${others[@]}" >&2
+    offer_kill "$name"; return
   fi
   # Only idle shells get "exit": typing it into another program (an editor,
   # a REPL…) would end up as text in its buffer.
   if [ ${#others[@]} -gt 0 ]; then
-    printf '\n%s\n' "$(L "Panneaux occupés par un programme (laissés intacts) :" \
-                         "Panes running a program (left untouched):")" >&2
+    printf '\n%s\n' "$(L "Panneaux occupés (laissés intacts) :" "Busy panes (left untouched):")" >&2
     printf '%s\n' "${others[@]}" >&2
   fi
   confirm "$(L "Fermer la session « $name » (exit dans ${#shells[@]} panneau(x) shell) ?" \
@@ -362,12 +387,10 @@ close_session() {
   done
   printf '\n%s\n' "$(L "La session « $name » reste ouverte. Panneaux restants :" \
                          "Session \"$name\" is still open. Remaining panes:")" >&2
-  tmux list-panes -s -t "=$name:" -F '  #{window_index}.#{pane_index}  #{pane_current_command}' >&2 2>/dev/null
-  if confirm "$(L "La tuer (kill-session) ?" "Kill it (kill-session)?")"; then
-    tmux kill-session -t "=$name" && msg "$(L "Session « $name » tuée." "Session \"$name\" killed.")"
-  else
-    msg "$(L "Session « $name » laissée ouverte." "Session \"$name\" left open.")"
-  fi
+  while IFS=$'\t' read -r p desc cmd; do
+    pane_label "$(pane_state "$p")" "$desc" "$cmd" >&2
+  done < <(list_panes "$name")
+  offer_kill "$name"
 }
 
 session_menu() {
