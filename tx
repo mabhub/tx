@@ -108,6 +108,10 @@ is_shell() { # is_shell NAME → true for an interactive shell (login shells sta
   return 1
 }
 
+pane_is_shell() { # pane_is_shell PANE_ID → true if the pane is at a shell prompt right now
+  is_shell "$(tmux display-message -p -t "$1" '#{pane_current_command}' 2>/dev/null)"
+}
+
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
   local pid=$1 t=${2#/dev/} ssh p c i
   if [ ! -d "/proc/$pid" ]; then printf '%s' "$t"; return; fi
@@ -272,9 +276,15 @@ close_session() {
   fi
   confirm "$(L "Fermer la session « $name » (exit dans ${#shells[@]} panneau(x) shell) ?" \
                 "Close session \"$name\" (exit in ${#shells[@]} shell pane(s))?")" || return
-  for p in "${shells[@]}"; do tmux send-keys -t "$p" C-c 2>/dev/null; done
-  sleep 0.3
+  # Check each pane again just before typing: a program may have started in
+  # it while the confirmation was waiting.
+  local ready=()
   for p in "${shells[@]}"; do
+    pane_is_shell "$p" && tmux send-keys -t "$p" C-c 2>/dev/null && ready+=("$p")
+  done
+  sleep 0.3
+  for p in "${ready[@]}"; do
+    pane_is_shell "$p" || continue
     tmux send-keys -t "$p" -l exit 2>/dev/null
     tmux send-keys -t "$p" Enter 2>/dev/null
   done
