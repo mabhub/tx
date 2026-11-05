@@ -45,12 +45,7 @@ stopped || failed "the job in $stop_pane did not get suspended"
 # kill-session offered for the panes left), then stuck (where kill-session
 # is the only question, declined too), and quit.
 input=$'3\n3\ny\n2\n3\ny\nn\n3\n3\nn\nq\n'
-# exec: the job's PID becomes this sleep, so the final kill stops it too.
-{ sleep 2; printf '%s' "$input"; exec sleep 30; } | PATH=$SANDBOX pty "$TX" >"$LOG" 2>&1 &
-pid=$!
-for _ in $(seq 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
-
-kill -0 "$pid" 2>/dev/null && failed "tx did not quit"
+run_menu "$input" || failed "tx did not quit"
 tmux has-session -t =idle 2>/dev/null && failed "idle session still open"
 tmux has-session -t =busy 2>/dev/null || failed "busy session was killed"
 tmux has-session -t =stuck 2>/dev/null || failed "stuck session was killed"

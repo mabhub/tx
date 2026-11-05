@@ -26,12 +26,7 @@ tmux new-session -d -s work bash --norc --noprofile
 # the pre-filled name, then to work2é, then once more without changing it,
 # and quit.
 input=$'2\n2\n2\n2\n2\né\n2\n2\n\nq\n'
-# exec: the job's PID becomes this sleep, so the final kill stops it too.
-{ sleep 2; printf '%s' "$input"; exec sleep 30; } | PATH=$SANDBOX pty "$TX" >"$LOG" 2>&1 &
-pid=$!
-for _ in $(seq 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
-
-kill -0 "$pid" 2>/dev/null && failed "tx did not quit"
+run_menu "$input" || failed "tx did not quit"
 [ "$(tmux -u list-sessions -F '#{session_name}' 2>/dev/null)" = "work2é" ] \
   || failed "work was not renamed to work2, then work2é"
 grep -q 'already exists' "$LOG" && failed "an unchanged name was not taken as cancel"

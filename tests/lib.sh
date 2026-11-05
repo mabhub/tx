@@ -40,3 +40,12 @@ no_fzf_path() { # no_fzf_path DIR: fills DIR with /bin and /usr/bin minus fzf, t
   ln -s /bin/* "$1/" 2>/dev/null; ln -s /usr/bin/* "$1/" 2>/dev/null
   rm -f "$1/fzf"
 }
+
+run_menu() { # run_menu INPUT: types INPUT into $TX (PATH=$SANDBOX) in a pty, logs to $LOG; false if tx did not quit within 20 s
+  local pid _
+  # exec: the job's PID becomes this sleep, so the final kill stops it too.
+  { sleep 2; printf '%s' "$1"; exec sleep 30; } | PATH=$SANDBOX pty "$TX" >"$LOG" 2>&1 &
+  pid=$!
+  for _ in $(seq 40); do kill -0 "$pid" 2>/dev/null || return 0; sleep 0.5; done
+  return 1
+}
