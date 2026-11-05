@@ -230,8 +230,8 @@ choose() {
 valid_new_name() {
   local n=$1
   case $n in
-    *[.:]*) msg "$(L "Nom invalide : « . » et « : » sont interdits par tmux." \
-                     "Invalid name: tmux forbids \".\" and \":\".")"; return 1 ;;
+    *[.:]*) msg "$(L "Nom invalide : tmux ne garde pas « . » ni « : » dans un nom de session." \
+                     "Invalid name: tmux does not keep \".\" or \":\" in a session name.")"; return 1 ;;
     "$NEW_KEY") msg "$(L "Nom réservé : « $NEW_KEY »." "Reserved name: \"$NEW_KEY\".")"; return 1 ;;
   esac
   if tmux has-session -t "=$n" 2>/dev/null; then

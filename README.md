@@ -85,7 +85,8 @@ list). For a selected session:
 
 - **Attach**: if other clients are already attached, choose between
   detaching them or sharing the session.
-- **Rename**: tmux forbids `.` and `:` in session names.
+- **Rename**: names with `.` or `:` are refused, since tmux would not keep
+  them as typed (tmux 3.4 turns them into `_`).
 - **Close**: sends Ctrl-C then `exit` to the panes sitting at a shell prompt,
   so they shut down cleanly. Panes running another program (an editor, a
   REPL, a long job) are listed before you confirm and left untouched: typing
