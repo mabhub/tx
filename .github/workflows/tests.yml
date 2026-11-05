@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck -s bash tx tests/notice.sh
+      - run: shellcheck -s bash tx tests/notice.sh tests/macos-report.sh
 
   notice:
     strategy:
@@ -29,4 +29,7 @@ jobs:
           fi
           bash --version | head -n 1
           tmux -V
-      - run: tests/notice.sh
+      - if: runner.os == 'Linux'
+        run: tests/notice.sh
+      - if: runner.os == 'macOS'
+        run: tests/macos-report.sh  # runs tests/notice.sh too

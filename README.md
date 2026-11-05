@@ -30,9 +30,10 @@ otherwise. Run `LC_ALL=C tx` to force English.
 - [fzf](https://github.com/junegunn/fzf), optional: without it `tx` falls back
   to a numbered menu
 
-On macOS: `brew install bash tmux fzf`. macOS support is recent: the menu and
-the notice are tested in CI, but the reminder shown when closing the last
-terminal has not been tried in Terminal.app or iTerm2 yet.
+On macOS: `brew install bash tmux fzf`. macOS support is recent: CI checks the
+numbered menu, client detection and the notice on macOS, but nothing has been
+tried on a real Mac yet, neither the fzf menu nor the reminder shown when
+closing the last terminal in Terminal.app or iTerm2.
 
 ## Installation
 
@@ -114,8 +115,14 @@ tests/notice.sh
 ```
 
 Starts an isolated tmux server (your sessions are left alone), attaches
-simulated local and ssh clients, and checks the notice. CI runs it on Linux
-and macOS, along with `shellcheck`.
+simulated local and ssh clients, and checks the notice.
+
+On a Mac, `tests/macos-report.sh` also checks the bash version guard,
+`tx init` and the numbered menu, then writes `tx-macos-report.txt`, worth
+attaching to a bug report.
+
+CI runs `shellcheck`, then `tests/notice.sh` on Linux and
+`tests/macos-report.sh` on macOS.
 
 ## License
 
