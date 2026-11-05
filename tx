@@ -164,8 +164,11 @@ pane_at_prompt() { # pane_at_prompt PANE_ID → true if the pane's shell waits a
   # A running script shows up as "bash" too. At its prompt, the shell owns
   # the terminal's foreground and is alone in its process group; a script
   # shares its group with the command it runs, or leaves the foreground to it.
-  ps -A -o pgid=,tpgid= 2>/dev/null \
-    | awk -v p="$pid" '$1 == p { n++; fg = $2 } END { exit !(n == 1 && fg == p) }'
+  # A job suspended with Ctrl-Z (often an editor) also keeps the pane busy:
+  # forcing that shell out would take the job with it.
+  ps -A -o ppid=,pgid=,tpgid=,stat= 2>/dev/null \
+    | awk -v p="$pid" '$2 == p { n++; fg = $3 } $1 == p && $4 ~ /^T/ { stopped = 1 }
+                       END { exit !(n == 1 && fg == p && !stopped) }'
 }
 
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
