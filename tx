@@ -115,9 +115,12 @@ msg() {
   [ "$HAS_FZF" = 0 ] && printf '\n%s\n' "$*" >&2
 }
 
-ask() { # ask PROMPT → answer on stdout
+ask() { # ask PROMPT [INITIAL] → answer on stdout; readline edits the line, INITIAL pre-filled
   local reply
-  read -r -p "$1" reply </dev/tty || return 1
+  # Outside a UTF-8 locale (ssh without a valid LANG), readline would drop
+  # accented letters instead of inserting their bytes.
+  bind 'set input-meta on' 'set output-meta on' 'set convert-meta off' 2>/dev/null
+  read -e -r -i "${2-}" -p "$1" reply </dev/tty || return 1
   printf '%s' "$reply"
 }
 
@@ -317,9 +320,9 @@ attach_session() {
 
 rename_session() {
   local name=$1 new
-  new=$(ask "$(L "Nouveau nom pour « $name » (vide = annuler) : " \
-                 "New name for \"$name\" (empty = cancel): ")") || return
-  [ -z "$new" ] && return
+  new=$(ask "$(L "Nouveau nom (inchangé ou vide = annuler) : " \
+                 "New name (unchanged or empty = cancel): ")" "$name") || return
+  [ -z "$new" ] || [ "$new" = "$name" ] && return
   valid_new_name "$new" || return
   tmux rename-session -t "=$name" -- "$new" && msg "$(L "« $name » renommée en « $new »." "\"$name\" renamed to \"$new\".")"
 }

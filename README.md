@@ -85,8 +85,9 @@ list). For a selected session:
 
 - **Attach**: if other clients are already attached, choose between
   detaching them or sharing the session.
-- **Rename**: names with `.` or `:` are refused, since tmux would not keep
-  them as typed (tmux 3.4 turns them into `_`).
+- **Rename**: the field starts with the current name, to edit rather than
+  retype. Names with `.` or `:` are refused, since tmux would not keep them
+  as typed (tmux 3.4 turns them into `_`).
 - **Close**: sends Ctrl-C then `exit` to the panes whose shell waits at its
   prompt, so they shut down cleanly. Busy panes are listed before you
   confirm and left untouched: a program (an editor, a REPL, a long job), a
@@ -135,6 +136,7 @@ once, and nothing is shown.
 ```sh
 tests/notice.sh
 tests/close.sh
+tests/rename.sh
 tests/init.sh
 ```
 
@@ -142,7 +144,8 @@ They start an isolated tmux server, without your `~/.tmux.conf` (your
 sessions are left alone).
 `tests/notice.sh` attaches simulated local and ssh clients, and checks the
 notice. `tests/close.sh` closes sessions from the numbered menu and checks
-that a pane running a program is left untouched. `tests/init.sh` checks the
+that a pane running a program is left untouched. `tests/rename.sh` checks
+that renaming starts from the current name. `tests/init.sh` checks the
 code printed by `tx init`: in bash, an earlier `EXIT` trap still runs, and
 evaluating the code twice installs the exit hook once.
 

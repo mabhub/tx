@@ -13,6 +13,8 @@ start_test_server() { # isolated tmux server, removed on exit with the test's jo
   export TMUX_TMPDIR
   trap cleanup EXIT
   unset TMUX
+  # tx reads its answers with readline: no ~/.inputrc bindings either.
+  export INPUTRC=/dev/null
   # tmux clients need a usable TERM (CI has none, or "dumb").
   case ${TERM:-dumb} in dumb) export TERM=xterm ;; esac
 }
