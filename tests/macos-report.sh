@@ -147,6 +147,9 @@ if tests/notice.sh "$TX"; then result PASS "tests/notice.sh"; else result FAIL "
 section "Close test (tests/close.sh)"
 if tests/close.sh "$TX"; then result PASS "tests/close.sh"; else result FAIL "tests/close.sh"; fi
 
+section "Init test (tests/init.sh)"
+if tests/init.sh "$TX"; then result PASS "tests/init.sh"; else result FAIL "tests/init.sh"; fi
+
 section "Summary"
 printf '%s' "$RESULTS"
 case $RESULTS in *FAIL*) finish 1 ;; *) finish 0 ;; esac

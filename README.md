@@ -135,20 +135,23 @@ once, and nothing is shown.
 ```sh
 tests/notice.sh
 tests/close.sh
+tests/init.sh
 ```
 
-Both start an isolated tmux server, without your `~/.tmux.conf` (your
+They start an isolated tmux server, without your `~/.tmux.conf` (your
 sessions are left alone).
 `tests/notice.sh` attaches simulated local and ssh clients, and checks the
 notice. `tests/close.sh` closes sessions from the numbered menu and checks
-that a pane running a program is left untouched.
+that a pane running a program is left untouched. `tests/init.sh` checks the
+code printed by `tx init`: in bash, an earlier `EXIT` trap still runs, and
+evaluating the code twice installs the exit hook once.
 
 On a Mac, `tests/macos-report.sh` also checks the bash version guard,
 `tx init` and the numbered menu, then writes `tx-macos-report.txt`, worth
 attaching to a bug report.
 
-CI runs `shellcheck`, then `tests/notice.sh` and `tests/close.sh` on Linux,
-and `tests/macos-report.sh` (which runs both) on macOS.
+CI runs `shellcheck`, then the three tests on Linux, and
+`tests/macos-report.sh` (which runs them) on macOS.
 
 ## License
 

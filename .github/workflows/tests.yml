@@ -30,6 +30,6 @@ jobs:
           bash --version | head -n 1
           tmux -V
       - if: runner.os == 'Linux'
-        run: tests/notice.sh && tests/close.sh
+        run: tests/notice.sh && tests/close.sh && tests/init.sh
       - if: runner.os == 'macOS'
-        run: tests/macos-report.sh  # runs tests/notice.sh and tests/close.sh too
+        run: tests/macos-report.sh  # runs the other tests too
