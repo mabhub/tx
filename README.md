@@ -30,10 +30,9 @@ otherwise. Run `LC_ALL=C tx` to force English.
 - [fzf](https://github.com/junegunn/fzf), optional: without it `tx` falls back
   to a numbered menu
 
-On macOS: `brew install bash tmux fzf`. macOS support is recent: CI checks the
-numbered menu, client detection and the notice on macOS, but nothing has been
-tried on a real Mac yet, neither the fzf menu nor the reminder shown when
-closing the last terminal in Terminal.app or iTerm2.
+On macOS: `brew install bash tmux fzf` (conda-forge also has all three, for
+instance through micromamba). Tested by hand on macOS 13 (Intel) in
+Terminal.app, and in CI on the latest macOS. iTerm2 has not been tried.
 
 ## Installation
 
@@ -107,6 +106,10 @@ going away and nothing else would remind you of your sessions:
 
 The reminder lists the sessions that would be left behind. Press Enter to
 close the terminal anyway, or `t` to open `tx` and deal with them first.
+
+The reminder needs the shell to exit by itself (`exit`, Ctrl-D). In
+Terminal.app, closing the window (⌘W or the close button) ends the shell at
+once, and nothing is shown.
 
 ## Tests
 
