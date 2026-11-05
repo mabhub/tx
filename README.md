@@ -55,6 +55,21 @@ The generated code only runs in interactive shells outside tmux, and does
 nothing if tmux is not installed. In bash, an `EXIT` trap set earlier in
 `.bashrc` is kept and still runs.
 
+### Suggested: session name as the terminal title
+
+By default the terminal window or tab shows the name of the last command
+run, such as `tx` or `tmux`. To show the tmux session name instead, add to
+`~/.tmux.conf`:
+
+```tmux
+set -g set-titles on
+set -g set-titles-string "#S"
+```
+
+tmux then updates the title on attach, on session switch and on rename
+(including from `tx`). `"#S · #W"` adds the active window name. Reload with
+`tmux source-file ~/.tmux.conf`.
+
 ## Usage
 
 | Command             | Effect                                                  |
