@@ -87,11 +87,14 @@ list). For a selected session:
   detaching them or sharing the session.
 - **Rename**: names with `.` or `:` are refused, since tmux would not keep
   them as typed (tmux 3.4 turns them into `_`).
-- **Close**: sends Ctrl-C then `exit` to the panes sitting at a shell prompt,
-  so they shut down cleanly. Panes running another program (an editor, a
-  REPL, a long job) are listed before you confirm and left untouched: typing
-  `exit` there would end up in the program's input. After up to 5 seconds,
-  if panes remain, `tx` lists them and offers `kill-session`.
+- **Close**: sends Ctrl-C then `exit` to the panes whose shell waits at its
+  prompt, so they shut down cleanly. Busy panes are listed before you
+  confirm and left untouched: a program (an editor, a REPL, a long job), a
+  running script, or a shell holding a job suspended with Ctrl-Z, shown as
+  `(suspended job)`. Typing `exit` there would end up in the program's input,
+  or take the suspended job down. Once the shells have exited, `tx` lists the
+  panes left, if any, and offers `kill-session`; with no idle shell at all,
+  that is the only question.
 
 Attaching or creating an attached session is not possible from inside tmux;
 `tx` tells you to detach first.
