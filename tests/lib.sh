@@ -1,6 +1,10 @@
 # Helpers shared by the tests, which source this file. Written for the
 # bash 3.2 of macOS, like tests/macos-report.sh.
 
+# Other shells run start_test_server's EXIT trap when the function returns
+# (zsh): the test server would vanish, and tmux would reach the real one.
+[ -n "${BASH_VERSION:-}" ] || { echo "tests/lib.sh: source it from bash" >&2; return 1; }
+
 # The tests' own tmux server ignores ~/.tmux.conf: plugins, hooks or options
 # such as remain-on-exit would change the results.
 tmux() { command tmux -f /dev/null "$@"; }
