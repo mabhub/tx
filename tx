@@ -157,8 +157,15 @@ is_shell() { # is_shell NAME → true for an interactive shell (login shells sta
   return 1
 }
 
-pane_is_shell() { # pane_is_shell PANE_ID → true if the pane is at a shell prompt right now
-  is_shell "$(tmux display-message -p -t "$1" '#{pane_current_command}' 2>/dev/null)"
+pane_at_prompt() { # pane_at_prompt PANE_ID → true if the pane's shell waits at its prompt
+  local cmd='' pid=''
+  IFS=$'\t' read -r cmd pid < <(tmux display-message -p -t "$1" $'#{pane_current_command}\t#{pane_pid}' 2>/dev/null)
+  is_shell "$cmd" || return 1
+  # A running script shows up as "bash" too. At its prompt, the shell owns
+  # the terminal's foreground and is alone in its process group; a script
+  # shares its group with the command it runs, or leaves the foreground to it.
+  ps -A -o pgid=,tpgid= 2>/dev/null \
+    | awk -v p="$pid" '$1 == p { n++; fg = $2 } END { exit !(n == 1 && fg == p) }'
 }
 
 client_origin() { # client_origin PID TTY → "ssh 1.2.3.4 (pts/3)", "local, kitty (pts/1)"…
@@ -314,7 +321,7 @@ close_session() {
     return
   fi
   while IFS=$'\t' read -r p desc cmd; do
-    if is_shell "$cmd"; then shells+=("$p"); else others+=("  $desc  $cmd"); fi
+    if pane_at_prompt "$p"; then shells+=("$p"); else others+=("  $desc  $cmd"); fi
   done < <(tmux list-panes -s -t "=$name:" -F $'#{pane_id}\t#{window_index}.#{pane_index}\t#{pane_current_command}' 2>/dev/null)
   if [ $((${#shells[@]} + ${#others[@]})) -eq 0 ]; then
     msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return
@@ -332,11 +339,11 @@ close_session() {
   # it while the confirmation was waiting.
   local ready=()
   for p in "${shells[@]}"; do
-    pane_is_shell "$p" && tmux send-keys -t "$p" C-c 2>/dev/null && ready+=("$p")
+    pane_at_prompt "$p" && tmux send-keys -t "$p" C-c 2>/dev/null && ready+=("$p")
   done
   sleep 0.3
   for p in "${ready[@]}"; do
-    pane_is_shell "$p" || continue
+    pane_at_prompt "$p" || continue
     tmux send-keys -t "$p" -l exit 2>/dev/null
     tmux send-keys -t "$p" Enter 2>/dev/null
   done
