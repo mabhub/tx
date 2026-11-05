@@ -39,12 +39,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pty() { # pty CMD...: runs CMD in a new pty (Linux and BSD script syntaxes)
-  case $(uname -s) in
-    Linux) script -qfc "$(printf '%q ' "$@")" /dev/null ;;
-    *)     script -q /dev/null "$@" ;;
-  esac
-}
+# shellcheck source=tests/lib.sh
+. tests/lib.sh
 kill_tree() { local c; for c in $(pgrep -P "$1"); do kill_tree "$c"; done; kill "$1" 2>/dev/null; }
 in_pty() { # in_pty INPUT CMD...: types INPUT into CMD after 2 s, gives up after 15 s
   local input=$1 pid _; shift
@@ -144,11 +140,7 @@ note "seen" "${seen:-nothing}"
 
 section "Menu, numbered version (fzf hidden)"
 # A PATH without fzf: tx falls back to its numbered menu, which can be driven from here.
-SANDBOX=$(mktemp -d /tmp/txb.XXXX)
-for t in bash tmux; do ln -s "$(command -v "$t")" "$SANDBOX/$t"; done
-for f in /bin/* /usr/bin/*; do
-  [ "${f##*/}" = fzf ] || ln -s "$f" "$SANDBOX/" 2>/dev/null
-done
+SANDBOX=$(mktemp -d /tmp/txb.XXXX); no_fzf_path "$SANDBOX"
 tmux new-session -d -s alone
 tmux new-session -d -s here
 sleep 600 | pty tmux attach -t here >/dev/null 2>&1 &

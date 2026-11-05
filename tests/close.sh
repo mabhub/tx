@@ -10,23 +10,22 @@ set -u
 TX=${1:-$(cd "$(dirname "$0")/.." && pwd)/tx}
 # Short socket path: Unix sockets are limited to about 100 characters.
 TMUX_TMPDIR=$(mktemp -d /tmp/txt.XXXX); export TMUX_TMPDIR
+# shellcheck disable=SC2329 # run by the EXIT trap
+cleanup() {  # also when interrupted: the panes run sleep 600
+  tmux kill-server 2>/dev/null
+  # shellcheck disable=SC2046 # one PID per word
+  kill $(jobs -p) 2>/dev/null
+  rm -rf "$TMUX_TMPDIR" "${SANDBOX:-}"
+}
+trap cleanup EXIT
 unset TMUX; export LC_ALL=C TERM=${TERM:-xterm}
 [ "$TERM" = dumb ] && export TERM=xterm
 LOG=$TMUX_TMPDIR/menu.log
 
+# shellcheck source=tests/lib.sh
+. "$(dirname "$0")/lib.sh"
 # A PATH without fzf: tx falls back to its numbered menu, which reads stdin.
-SANDBOX=$(mktemp -d /tmp/txb.XXXX)
-for t in bash tmux; do ln -s "$(command -v "$t")" "$SANDBOX/$t"; done
-for f in /bin/* /usr/bin/*; do
-  [ "${f##*/}" = fzf ] || ln -s "$f" "$SANDBOX/" 2>/dev/null
-done
-
-pty() { # pty CMD: runs CMD in a new pty (Linux and BSD script syntaxes)
-  case $(uname -s) in
-    Linux) script -qfc "$(printf '%q' "$1")" /dev/null ;;
-    *)     script -q /dev/null "$1" ;;
-  esac
-}
+SANDBOX=$(mktemp -d /tmp/txb.XXXX); no_fzf_path "$SANDBOX"
 
 fail=0
 failed() { printf 'FAIL: %s\n' "$1"; fail=1; }
@@ -76,10 +75,5 @@ for p in "$cat_pane" "$stop_pane"; do
     && failed "\"exit\" was typed into pane $p"
 done
 [ $fail = 0 ] || tr -d '\r' <"$LOG"
-
-tmux kill-server 2>/dev/null
-# shellcheck disable=SC2046 # one PID per word
-kill $(jobs -p) 2>/dev/null
-rm -rf "$TMUX_TMPDIR" "$SANDBOX"
 [ $fail = 0 ] && echo OK
 exit $fail
