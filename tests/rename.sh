@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Checks that renaming a session starts from its current name: typed text is
-# appended to it, accented letters included (the tests run in the C locale),
+# appended to it, spaces and accented letters included (the tests run in the C locale),
 # and Enter on the unchanged name cancels quietly.
 # Runs on an isolated tmux server (never touches your real sessions) and
 # drives the numbered menu, with fzf hidden, inside a pty.
@@ -23,12 +23,12 @@ tmux new-session -d -s work bash --norc --noprofile
 
 # The list reads "1) + new session  2) work", the session menu
 # "1) Attach  2) Rename  3) Close". Rename work to work2 by typing "2" after
-# the pre-filled name, then to work2é, then once more without changing it,
+# the pre-filled name, then to "work2 é", then once more without changing it,
 # and quit.
-input=$'2\n2\n2\n2\n2\né\n2\n2\n\nq\n'
+input=$'2\n2\n2\n2\n2\n é\n2\n2\n\nq\n'
 run_menu "$input" || failed "tx did not quit"
-[ "$(tmux -u list-sessions -F '#{session_name}' 2>/dev/null)" = "work2é" ] \
-  || failed "work was not renamed to work2, then work2é"
+[ "$(tmux -u list-sessions -F '#{session_name}' 2>/dev/null)" = "work2 é" ] \
+  || failed "work was not renamed to work2, then \"work2 é\""
 grep -q 'already exists' "$LOG" && failed "an unchanged name was not taken as cancel"
 [ $fail = 0 ] || tr -d '\r' <"$LOG"
 [ $fail = 0 ] && echo OK

@@ -3,7 +3,8 @@
 # sessions): creation in the current directory with COMMAND typed in the
 # first pane as is, attaching again from the same directory reached through
 # another path (share, then detach the other clients), refusal of a
-# same-named session started elsewhere, -n, --help, and, from inside tmux,
+# same-named session started elsewhere, -n, a directory name with a space and
+# accents, --help, and, from inside tmux,
 # switching the client, staying put when already there, and switching to a
 # session created from the menu.
 # script(1) gives each client a pty; fzf is hidden outside tmux.
@@ -16,7 +17,7 @@ export LC_ALL=C
 start_test_server
 LOG=$TMUX_TMPDIR/here.log
 SANDBOX=$(mktemp -d /tmp/txb.XXXX) || exit 1
-mkdir -p "$SANDBOX/bin" "$SANDBOX/my.proj" "$SANDBOX/other/my.proj" "$SANDBOX/next"
+mkdir -p "$SANDBOX/bin" "$SANDBOX/my.proj" "$SANDBOX/other/my.proj" "$SANDBOX/next" "$SANDBOX/mon projet été"
 ln -s "$SANDBOX" "$SANDBOX/link"
 # A PATH without fzf: tx falls back to its numbered menu, which reads stdin.
 no_fzf_path "$SANDBOX/bin"
@@ -35,7 +36,8 @@ pane() { tmux capture-pane -p -t "=$1:" 2>/dev/null; }
 pane_has() { pane "$1" | grep -q "$2"; }  # pane_has SESSION REGEX
 same_dir() { # same_dir SESSION DIR: the session was started in DIR, symlinks resolved
   local p
-  p=$(tmux display-message -p -t "=$1:" '#{session_path}' 2>/dev/null)
+  # -u: in the C locale, tmux would print "é" as "_".
+  p=$(tmux -u display-message -p -t "=$1:" '#{session_path}' 2>/dev/null)
   [ "$(cd "$p" && pwd -P)" = "$(cd "$2" && pwd -P)" ]
 }
 here() { # here INPUT ARGS...: tx here ARGS in a pty, INPUT typed after 2 s, kept attached
@@ -79,6 +81,15 @@ case $out in *"already exists, started in"*) ;; *) failed "unclear refusal: $out
 here "" -n other
 wait_for has_clients other 1 || failed "tx here -n other did not create and attach other"
 same_dir other "$SANDBOX/other/my.proj" || failed "other was not started in its directory"
+
+# 5b. A directory name with a space and accents becomes the session name as
+#     is, and the same directory finds it again ("2" shares it).
+cd "$SANDBOX/mon projet été" || exit 1
+here ""
+wait_for has_clients "mon projet été" 1 || failed "tx here did not create and attach \"mon projet été\""
+same_dir "mon projet été" "$SANDBOX/mon projet été" || failed "\"mon projet été\" was not started in its directory"
+here $'2\n'
+wait_for has_clients "mon projet été" 2 || failed "tx here did not find \"mon projet été\" again"
 
 # --help: usage on stdout, success.
 out=$("$TX" here --help 2>/dev/null) || failed "tx here --help failed"

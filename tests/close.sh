@@ -22,7 +22,7 @@ failed() { printf 'FAIL: %s\n' "$1"; fail=1; }
 
 shell=(bash --norc --noprofile)
 job='sleep 600; : tx-test-job'  # a script, which tmux shows as "bash"
-tmux new-session -d -s idle "${shell[@]}"
+tmux new-session -d -s "idle é" "${shell[@]}"  # a space and an accent in the name
 tmux new-session -d -s busy -x 120 -y 60 "${shell[@]}"  # room for 5 panes
 tmux new-session -d -s stuck cat  # no shell at all: kill-session is offered at once
 # "exit" typed into cat would show up in the pane.
@@ -40,13 +40,13 @@ for _ in $(seq 20); do stopped && break; sleep 0.25; done
 # Otherwise the pane would look busy for another reason, and prove nothing.
 stopped || failed "the job in $stop_pane did not get suspended"
 
-# The list reads "1) + new session  2) busy  3) idle  4) stuck", the session
-# menu "1) Attach  2) Rename  3) Close". Close idle, then busy (declining the
+# The list reads "1) + new session  2) busy  3) idle é  4) stuck", the session
+# menu "1) Attach  2) Rename  3) Close". Close "idle é", then busy (declining the
 # kill-session offered for the panes left), then stuck (where kill-session
 # is the only question, declined too), and quit.
 input=$'3\n3\ny\n2\n3\ny\nn\n3\n3\nn\nq\n'
 run_menu "$input" || failed "tx did not quit"
-tmux has-session -t =idle 2>/dev/null && failed "idle session still open"
+tmux has-session -t "=idle é" 2>/dev/null && failed "\"idle é\" session still open"
 tmux has-session -t =busy 2>/dev/null || failed "busy session was killed"
 tmux has-session -t =stuck 2>/dev/null || failed "stuck session was killed"
 grep -q 'suspended job' "$LOG" || failed "the suspended job was not pointed out"
