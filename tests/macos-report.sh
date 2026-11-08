@@ -150,6 +150,9 @@ if tests/close.sh "$TX"; then result PASS "tests/close.sh"; else result FAIL "te
 section "Rename test (tests/rename.sh)"
 if tests/rename.sh "$TX"; then result PASS "tests/rename.sh"; else result FAIL "tests/rename.sh"; fi
 
+section "Attach test (tests/attach.sh)"
+if tests/attach.sh "$TX"; then result PASS "tests/attach.sh"; else result FAIL "tests/attach.sh"; fi
+
 section "Init test (tests/init.sh)"
 if tests/init.sh "$TX"; then result PASS "tests/init.sh"; else result FAIL "tests/init.sh"; fi
 

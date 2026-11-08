@@ -173,6 +173,7 @@ once, and nothing is shown.
 tests/notice.sh
 tests/close.sh
 tests/rename.sh
+tests/attach.sh
 tests/init.sh
 tests/here.sh
 ```
@@ -182,7 +183,9 @@ sessions are left alone).
 `tests/notice.sh` attaches simulated local and ssh clients, and checks the
 notice. `tests/close.sh` closes sessions from the numbered menu and checks
 that a pane running a program is left untouched. `tests/rename.sh` checks
-that renaming starts from the current name. `tests/init.sh` checks the
+that renaming starts from the current name. `tests/attach.sh` checks that a
+session closed after the list was shown is reported, not attached.
+`tests/init.sh` checks the
 code printed by `tx init`: in bash, an earlier `EXIT` trap still runs, and
 evaluating the code twice installs the exit hook once. `tests/here.sh`
 checks `tx here`: a new session with its command, attaching again (share,

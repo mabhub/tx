@@ -313,9 +313,11 @@ new_session() {
 
 attach_session() { # from inside tmux, switches this client to the session instead
   local name=$1 info attached id choice
-  info=$(tmux display-message -p -t "=$name:" '#{session_attached} #{session_id}' 2>/dev/null) || {
-    msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return; }
+  info=$(tmux display-message -p -t "=$name:" '#{session_attached} #{session_id}' 2>/dev/null)
   read -r attached id <<<"$info"
+  # For a missing session, tmux 3.4 prints nothing but succeeds: check the output.
+  [ -n "$id" ] || {
+    msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return; }
   if [ "$IN_TMUX" = 1 ] && [ "$id" = "$MY_SESSION_ID" ]; then
     msg "$(L "Vous êtes déjà dans la session « $name »." "You are already in session \"$name\".")"
     return
