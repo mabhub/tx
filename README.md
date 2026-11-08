@@ -8,6 +8,9 @@ sessions you left running.
   (local terminal, ssh with the remote address, mosh, nested tmux). Pick a
   session to attach, rename or close it, or create a new one. A live preview
   of the session's content is shown as you move through the list.
+- **`tx here`** opens the session of the current directory, and creates it
+  there, with a command of your choice in its first pane, if it does not
+  exist yet.
 - **Shell integration** prints a one-line notice when a terminal opens, and
   a blocking reminder when you close the last local terminal, if there are
   sessions you could lose track of: detached sessions, and sessions attached
@@ -72,13 +75,14 @@ tmux then updates the title on attach, on session switch and on rename
 
 ## Usage
 
-| Command             | Effect                                                  |
-|---------------------|---------------------------------------------------------|
-| `tx`                | Interactive menu                                        |
-| `tx init zsh\|bash` | Print the shell integration code to `eval`              |
-| `tx notice`         | Print the one-line notice (what the shell runs at startup) |
-| `tx notice --exit`  | Blocking reminder (what the shell runs on exit)         |
-| `tx --help`         | Short help                                              |
+| Command                         | Effect                                                         |
+|---------------------------------|----------------------------------------------------------------|
+| `tx`                            | Interactive menu                                               |
+| `tx here [-n NAME] [COMMAND…]`  | Session of the current directory: attach, or create it         |
+| `tx init zsh\|bash`             | Print the shell integration code to `eval`                     |
+| `tx notice`                     | Print the one-line notice (what the shell runs at startup)     |
+| `tx notice --exit`              | Blocking reminder (what the shell runs on exit)                |
+| `tx --help`                     | Short help                                                     |
 
 In the menu, Enter selects and Escape goes back (or quits from the session
 list). For a selected session:
@@ -99,6 +103,36 @@ list). For a selected session:
 
 From inside tmux, attaching to a session or creating one switches the
 current client to it, since tmux refuses to attach from within a session.
+
+### One session per project: `tx here`
+
+`tx here` opens the session of the current directory, named after it or
+after `-n NAME` (`.` and `:` become `_` in both cases). If the session exists,
+`tx` attaches to it; otherwise it creates it in this directory. A command
+given after `here` is typed into the first pane of a new session, as if you
+had typed it at the prompt: shell functions and aliases work, and the pane
+goes back to its shell when the command exits. An existing session is
+attached as is, without running the command again.
+
+As with `ssh`, the arguments are joined with spaces and typed as is, so the
+shell of the pane interprets them: `tx here 'make && vim .'` runs both
+commands, and an argument that must keep its spaces needs a second level of
+quotes (`tx here vim "'my notes.md'"`).
+
+```sh
+cd ~/projects/api
+tx here             # session "api"
+tx here -n api-v2   # same directory, another session name
+tx here vim .       # new session: vim in the first pane
+```
+
+To open a project with your editor or assistant in one word, an alias is
+enough: `alias work='tx here vim .'`.
+
+If a session with that name exists but was started in another directory,
+`tx here` stops and asks for another name (`-n`), rather than mixing two
+projects that share a directory name. Attaching works as in the menu: the
+detach or share choice, and the switch from inside tmux.
 
 ## How it works
 
@@ -138,6 +172,7 @@ tests/notice.sh
 tests/close.sh
 tests/rename.sh
 tests/init.sh
+tests/here.sh
 ```
 
 They start an isolated tmux server, without your `~/.tmux.conf` (your
@@ -147,13 +182,17 @@ notice. `tests/close.sh` closes sessions from the numbered menu and checks
 that a pane running a program is left untouched. `tests/rename.sh` checks
 that renaming starts from the current name. `tests/init.sh` checks the
 code printed by `tx init`: in bash, an earlier `EXIT` trap still runs, and
-evaluating the code twice installs the exit hook once.
+evaluating the code twice installs the exit hook once. `tests/here.sh`
+checks `tx here`: a new session with its command, attaching again (share,
+then detach), the refusal of a same-named session started elsewhere, the
+same directory reached through a symlink, `-n`, `--help`, and the switch from
+inside tmux, also to a session created from the menu.
 
 On a Mac, `tests/macos-report.sh` also checks the bash version guard,
 `tx init` and the numbered menu, then writes `tx-macos-report.txt`, worth
 attaching to a bug report.
 
-CI runs `shellcheck`, then the three tests on Linux, and
+CI runs `shellcheck`, then the tests on Linux, and
 `tests/macos-report.sh` (which runs them) on macOS.
 
 ## License

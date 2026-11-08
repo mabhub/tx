@@ -11,6 +11,10 @@
 #                          when a terminal opens and when the last local
 #                          terminal closes
 #   tx notice [--exit]   the warning itself (--exit: blocking reminder)
+#   tx here [-n NAME] [COMMAND...]
+#                        session named after the current directory (or NAME):
+#                        attaches to it, or creates it there and types
+#                        COMMAND in its first pane, as is (like ssh)
 #
 # From inside tmux, attaching switches the current client instead.
 set -u
@@ -94,6 +98,11 @@ Sous-commandes :
                          distance à l'ouverture d'un terminal et à la
                          fermeture du dernier
   tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
+  tx here [-n NOM] [COMMANDE…]
+                       session nommée d'après le dossier courant (ou NOM) :
+                       s'y rattache, ou la crée dans ce dossier et tape
+                       COMMANDE dans son premier pane, telle quelle
+                       (comme ssh)
 
 Depuis tmux, le rattachement bascule le client courant.
 EOF
@@ -326,6 +335,45 @@ attach_session() { # from inside tmux, switches this client to the session inste
   exec tmux attach-session -t "=$name"
 }
 
+here_session() { # tx here [-n NAME] [COMMAND...]: the current directory's session
+  local name="" usage dir
+  usage=$(L "Usage : tx here [-n NOM] [COMMANDE…]" "Usage: tx here [-n NAME] [COMMAND…]")
+  while [ $# -gt 0 ]; do
+    case $1 in
+      -n) [ $# -ge 2 ] || die "$usage"; name=$2; shift 2 ;;
+      -h|--help) printf '%s\n' "$usage"; exit 0 ;;
+      --) shift; break ;;
+      -*) die "$usage" ;;
+      *)  break ;;
+    esac
+  done
+  [ -n "$name" ] || name=$(basename "$PWD")
+  name=${name//[.:]/_}  # what tmux would turn them into anyway
+  [ "$name" = "$NEW_KEY" ] && die "$(L "Nom réservé : « $NEW_KEY »." "Reserved name: \"$NEW_KEY\".")"
+  if tmux has-session -t "=$name" 2>/dev/null; then
+    # Two directories with the same name would share one session: refuse.
+    # tmux keeps the path as given: compare them with symlinks resolved.
+    dir=$(tmux display-message -p -t "=$name:" '#{session_path}')
+    if [ "$(cd "$dir" 2>/dev/null && pwd -P)" != "$(pwd -P)" ]; then
+      die "$(L "La session « $name » existe déjà, ouverte dans $dir. Choisissez un autre nom : tx here -n NOM" \
+               "Session \"$name\" already exists, started in $dir. Pick another name: tx here -n NAME")"
+    fi
+  else
+    tmux new-session -d -s "$name" -c "$PWD" || exit 1
+    if [ $# -gt 0 ]; then
+      # Typed into the pane's shell rather than run by tmux: shell functions
+      # and aliases work, and the pane is left at its prompt when COMMAND exits.
+      # Arguments are joined with spaces and typed as is, like ssh does.
+      tmux send-keys -t "=$name:" -l -- "$*"
+      tmux send-keys -t "=$name:" Enter
+    fi
+  fi
+  attach_session "$name"
+  # Only reached when nothing was attached: say why (msg already did without fzf).
+  [ "$HAS_FZF" = 1 ] && [ -n "$LAST_MSG" ] && printf '%s\n' "$LAST_MSG" >&2
+  exit 0
+}
+
 rename_session() {
   local name=$1 new
   new=$(ask "$(L "Nouveau nom (inchangé ou vide = annuler) : " \
@@ -490,6 +538,7 @@ case ${1:-} in
     summary=$(sessions_summary)
     [ -n "$summary" ] && printf '%s %s → tx\n' "$(L "tmux :" "tmux:")" "$summary" >&2
     exit 0 ;;
+  here) shift; here_session "$@" ;;
   *) die "$(L "Sous-commande inconnue : $1 (voir tx --help)" "Unknown subcommand: $1 (see tx --help)")" ;;
 esac
 

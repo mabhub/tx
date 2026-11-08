@@ -153,6 +153,9 @@ if tests/rename.sh "$TX"; then result PASS "tests/rename.sh"; else result FAIL "
 section "Init test (tests/init.sh)"
 if tests/init.sh "$TX"; then result PASS "tests/init.sh"; else result FAIL "tests/init.sh"; fi
 
+section "Here test (tests/here.sh)"
+if tests/here.sh "$TX"; then result PASS "tests/here.sh"; else result FAIL "tests/here.sh"; fi
+
 section "Summary"
 printf '%s' "$RESULTS"
 case $RESULTS in *FAIL*) finish 1 ;; *) finish 0 ;; esac
