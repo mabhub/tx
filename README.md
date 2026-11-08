@@ -97,8 +97,8 @@ list). For a selected session:
   panes left, if any, and offers `kill-session`; with no idle shell at all,
   that is the only question.
 
-Attaching or creating an attached session is not possible from inside tmux;
-`tx` tells you to detach first.
+From inside tmux, attaching to a session or creating one switches the
+current client to it, since tmux refuses to attach from within a session.
 
 ## How it works
 

@@ -11,6 +11,8 @@
 #                          when a terminal opens and when the last local
 #                          terminal closes
 #   tx notice [--exit]   the warning itself (--exit: blocking reminder)
+#
+# From inside tmux, attaching switches the current client instead.
 set -u
 
 # Interface language: French when the locale says so, English otherwise.
@@ -92,6 +94,8 @@ Sous-commandes :
                          distance à l'ouverture d'un terminal et à la
                          fermeture du dernier
   tx notice [--exit]   le signalement lui-même (--exit : rappel bloquant)
+
+Depuis tmux, le rattachement bascule le client courant.
 EOF
   else sed -n '2,/^set -u/{/^set -u/d;s/^# \{0,1\}//;p;}' "$SELF"; fi
   exit 0
@@ -290,31 +294,35 @@ new_session() {
   if [ -n "$name" ]; then valid_new_name "$name" || return 1; fi
   local args=(new-session)
   [ -n "$name" ] && args+=(-s "$name")
-  if [ "$IN_TMUX" = 1 ]; then
-    tmux "${args[@]}" -d && msg "$(L \
-      "Session ${name:-(nom automatique)} créée en arrière-plan (rattachement impossible depuis tmux)." \
-      "Session ${name:-(automatic name)} created in the background (cannot attach from inside tmux).")"
-    return
+  if [ "$IN_TMUX" = 1 ]; then  # tmux refuses a nested attach: move this client instead
+    local id
+    id=$(tmux "${args[@]}" -d -P -F '#{session_id}') || return 1
+    exec tmux switch-client -t "$id"
   fi
   exec tmux "${args[@]}"
 }
 
-attach_session() {
-  local name=$1 attached choice
-  if [ "$IN_TMUX" = 1 ]; then
-    msg "$(L "Rattachement impossible depuis tmux : détachez-vous (préfixe puis d) et relancez tx." \
-             "Cannot attach from inside tmux: detach (prefix then d) and run tx again.")"
+attach_session() { # from inside tmux, switches this client to the session instead
+  local name=$1 info attached id choice
+  info=$(tmux display-message -p -t "=$name:" '#{session_attached} #{session_id}' 2>/dev/null) || {
+    msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return; }
+  read -r attached id <<<"$info"
+  if [ "$IN_TMUX" = 1 ] && [ "$id" = "$MY_SESSION_ID" ]; then
+    msg "$(L "Vous êtes déjà dans la session « $name »." "You are already in session \"$name\".")"
     return
   fi
-  attached=$(tmux display-message -p -t "=$name:" '#{session_attached}' 2>/dev/null) || {
-    msg "$(L "La session « $name » n'existe plus." "Session \"$name\" no longer exists.")"; return; }
+  # This client is in another session, so every client counted here is another one.
   if [ "${attached:-0}" -gt 0 ]; then
     choice=$(printf '%s\t%s\n' \
       detach "$(L "Détacher les autres clients et prendre la main" "Detach the other clients and take over")" \
       share  "$(L "Partager (les autres clients restent attachés)" "Share (the other clients stay attached)")" \
       | choose "$(L "Session déjà attachée" "Session already attached")" "" 6) || return
-    [ "$choice" = detach ] && exec tmux attach-session -d -t "=$name"
+    if [ "$choice" = detach ]; then
+      [ "$IN_TMUX" = 1 ] || exec tmux attach-session -d -t "=$name"
+      tmux detach-client -s "=$name"
+    fi
   fi
+  [ "$IN_TMUX" = 1 ] && exec tmux switch-client -t "=$name"
   exec tmux attach-session -t "=$name"
 }
 
