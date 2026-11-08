@@ -542,7 +542,15 @@ case ${1:-} in
   *) die "$(L "Sous-commande inconnue : $1 (voir tx --help)" "Unknown subcommand: $1 (see tx --help)")" ;;
 esac
 
-preview="tmux capture-pane -ep -t ={1}: 2>/dev/null || echo $(printf %q "$(L "Créer une nouvelle session." "Create a new session.")")"
+# fzf's preview, run by bash with {1} the session name, quoted by fzf: the
+# session's directory (~ for $HOME), then its active pane. display-message
+# prints nothing, but succeeds, for a missing session ("+").
+# shellcheck disable=SC2016 # expanded by fzf's shell, not here
+preview='d=$(tmux -u display-message -p -t ={1}: "#{session_path}" 2>/dev/null)
+[ -n "$d" ] || { echo '"$(printf %q "$(L "Créer une nouvelle session." "Create a new session.")")"'; exit; }
+case $d in "$HOME"|"$HOME"/*) d="~${d#"$HOME"}" ;; esac
+printf "\e[1m%s\e[0m\n\n" "$d"
+tmux -u capture-pane -ep -t ={1}: 2>/dev/null'
 
 while :; do
   list=$(session_list)

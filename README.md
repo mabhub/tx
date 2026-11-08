@@ -7,7 +7,7 @@ sessions you left running.
   times, and for attached sessions *where each client connects from*
   (local terminal, ssh with the remote address, mosh, nested tmux). Pick a
   session to attach, rename or close it, or create a new one. A live preview
-  of the session's content is shown as you move through the list.
+  shows the session's directory and content as you move through the list.
 - **`tx here`** opens the session of the current directory, and creates it
   there, with a command of your choice in its first pane, if it does not
   exist yet.
@@ -29,7 +29,9 @@ otherwise. Run `LC_ALL=C tx` to force English.
 - Linux or macOS
 - bash ≥ 4.4 (`tx` stops with a clear message on older versions). macOS ships
   bash 3.2: install a recent one with `brew install bash`
-- tmux
+- tmux: tested by hand with 3.4, and in CI with the versions of the latest
+  Ubuntu and Homebrew (3.6 and 3.8 in November 2026). No minimum version is
+  known.
 - [fzf](https://github.com/junegunn/fzf), optional: without it `tx` falls back
   to a numbered menu
 
