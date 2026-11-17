@@ -59,7 +59,12 @@ if [ "${1:-}" = init ]; then
     zsh) cat <<EOF
 if [[ -o interactive && -z \${TMUX:-} ]] && command -v tmux >/dev/null; then
   $QSELF notice
-  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && $QSELF notice --exit; }
+  # Directory deleted meanwhile: tx would start with getcwd errors.
+  _tx_exit() {
+    [[ -z \${TMUX:-} && -t 0 ]] || return 0
+    [[ . -ef \$PWD ]] || cd -q ~
+    $QSELF notice --exit
+  }
   autoload -Uz add-zsh-hook && add-zsh-hook zshexit _tx_exit
 fi
 EOF
@@ -67,7 +72,12 @@ EOF
     bash) cat <<EOF
 if [[ \$- == *i* && -z \${TMUX:-} ]] && command -v tmux >/dev/null; then
   $QSELF notice
-  _tx_exit() { [[ -z \${TMUX:-} && -t 0 ]] && $QSELF notice --exit; }
+  # Directory deleted meanwhile: tx would start with getcwd errors.
+  _tx_exit() {
+    [[ -z \${TMUX:-} && -t 0 ]] || return 0
+    [[ . -ef \$PWD ]] || cd ~
+    $QSELF notice --exit
+  }
   # Keep an EXIT trap set earlier (bash has a single EXIT trap), and install
   # ours only once: re-sourcing .bashrc would make it call itself forever.
   if [[ \$(trap -p EXIT) != *_tx_exit* ]]; then
